@@ -13,6 +13,7 @@ class Settings(BaseSettings):
 
     telegram_bot_token: str | None = None
     telegram_bot_enabled: bool = True
+    telegram_admin_id: int | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
