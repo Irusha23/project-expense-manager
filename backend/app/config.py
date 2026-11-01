@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     default_currency: str = "LKR"
 
+    telegram_bot_token: str | None = None
+    telegram_bot_enabled: bool = True
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property

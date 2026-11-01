@@ -24,3 +24,25 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+  telegram-bot:
+    build:
+      context: ./backend
+
+    container_name: pem-telegram-bot
+
+    command: python -m app.bot.main
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: sqlite:////app/storage/expense_manager.db
+
+    volumes:
+      - ./storage:/app/storage
+
+    depends_on:
+      - backend
+
+    restart: unless-stopped

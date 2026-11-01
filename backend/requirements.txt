@@ -4,3 +4,4 @@ sqlalchemy>=2.0,<3.0
 pydantic>=2.8,<3.0
 pydantic-settings>=2.4,<3.0
 python-multipart>=0.0.9
+aiogram>=3.13,<4.0
