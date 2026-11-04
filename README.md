@@ -51,6 +51,73 @@ npm install
 npm run dev
 ```
 
+## Standalone PaddleOCR CPU test environment (Phase 3.1–3.3)
+
+This isolated test image does not build or change the backend image or Compose
+services. Docker downloads OCR models on the first inference run, not during the
+image build. Model files persist in `storage/ocr-models`.
+
+From the repository root in PowerShell:
+
+```powershell
+docker build -f backend/Dockerfile.ocr-test -t pem-ocr-test backend
+docker run --rm -v "${PWD}\storage:/app/storage" -v "${PWD}\storage\ocr-models:/root/.paddlex" pem-ocr-test /app/storage/receipts/PROJECT_ID/PURCHASE_ID/receipt.jpg --output-dir /app/storage/ocr-output
+```
+
+Replace the example receipt path with an existing image. The test writes the
+raw structured result to `storage/ocr-output/ocr_result.json`; recognized text
+and confidence scores are printed to the console. The first run requires
+internet access to download PaddleOCR's CPU inference models.
+
+### Reusable OCR service (Phase 3.3)
+
+`backend/scripts/ocr_service.py` exposes a lazily initialized `OCRService` that
+reuses one PaddleOCR CPU engine. It validates and decodes each supported image,
+returns ordered text regions with available confidence and polygon/box data,
+and retains the full PaddleOCR response for JSON persistence. Grayscale
+preprocessing is optional and disabled by default; it passes grayscale pixels
+to OCR without changing the source receipt.
+
+The Phase 3.1 CLI remains compatible. Raw results are saved as
+`<output-dir>/ocr_result.json`; existing result files are not overwritten.
+Enable optional grayscale preprocessing with `--preprocess-grayscale`:
+
+```powershell
+docker run --rm -v "${PWD}\storage:/app/storage" -v "${PWD}\storage\ocr-models:/root/.paddlex" pem-ocr-test /app/storage/receipts/PROJECT_ID/PURCHASE_ID/receipt.jpg --output-dir /app/storage/ocr-run-grayscale --preprocess-grayscale
+```
+
+The service can also be reused from Python by adding `backend/scripts` to
+`PYTHONPATH` and running from the repository root:
+
+```python
+from ocr_service import OCRService
+
+service = OCRService(preprocess_grayscale=False)
+result = service.process("storage/ocr_samples/receipt.jpg")
+print(result.status, result.original_input_path)
+for region in result.text_regions:
+    print(region.text, region.confidence, region.bounding_box)
+json_path = service.save_raw_json(result, "storage/ocr-output")
+```
+
+### Preprocess receipt image variants (Phase 3.2)
+
+The same isolated image includes OpenCV. Preprocessing writes independent PNG
+variants to `storage/ocr_samples/receipt_preprocessed` by default; set
+`--output-dir` to choose another directory. The default maximum width is 2000
+pixels and can be changed with `--max-width`.
+
+```powershell
+docker build -f backend/Dockerfile.ocr-test -t pem-ocr-test backend
+docker run --rm --entrypoint python -v "${PWD}\storage:/app/storage" pem-ocr-test /app/receipt_preprocess.py /app/storage/ocr_samples/receipt.jpg --output-dir /app/storage/ocr_samples/receipt_preprocessed
+docker run --rm -v "${PWD}\storage:/app/storage" -v "${PWD}\storage\ocr-models:/root/.paddlex" pem-ocr-test /app/storage/ocr_samples/receipt_preprocessed/03_contrast.png --output-dir /app/storage/ocr-output
+```
+
+Perspective correction is emitted as `09_perspective_corrected.png` only when
+a plausible document boundary is found. Deskewing is skipped when horizontal
+text-line evidence is weak or the estimated angle is outside the conservative
+correction range.
+
 ## Database model (Phase 1)
 - Project: projects
 - Member: members (Telegram identity will be linked in Phase 2)

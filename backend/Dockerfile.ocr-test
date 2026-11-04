@@ -1,0 +1,26 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PADDLE_PDX_CACHE_HOME=/root/.paddlex
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libgomp1 \
+        libgl1 \
+        libglib2.0-0 \
+        libsm6 \
+        libxext6 \
+        libxrender1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-ocr.txt .
+RUN python -m pip install --no-cache-dir -r requirements-ocr.txt
+
+COPY scripts/ocr_smoke_test.py /app/ocr_smoke_test.py
+COPY scripts/ocr_service.py /app/ocr_service.py
+COPY scripts/receipt_preprocess.py /app/receipt_preprocess.py
+
+ENTRYPOINT ["python", "/app/ocr_smoke_test.py"]
