@@ -4,9 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import Base, engine
 from app import models  # noqa: F401 - register ORM models
-from app.routers import health, projects
+from app.routers import health, projects, purchases
 
-Path("storage").mkdir(parents=True, exist_ok=True)
+Path(settings.storage_root).mkdir(parents=True, exist_ok=True)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -25,6 +25,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(projects.router)
+app.include_router(purchases.router)
 
 
 @app.get("/")

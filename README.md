@@ -70,5 +70,40 @@ npm run dev
 - Google Sheets sync must be idempotent using `purchase_id`.
 - Back up `storage/expense_manager.db` and receipt files regularly.
 
+## Purchases dashboard API (Phase 2.6)
+
+The local dashboard reads purchases and receipt metadata from SQLite through:
+
+- `GET /api/v1/purchases` (filters, sorting, and pagination)
+- `GET /api/v1/purchases/{purchase_id}`
+- `GET /api/v1/purchases/stats`
+- `GET /api/v1/purchases/{purchase_id}/receipts/{receipt_id}` (inline preview)
+- `GET /api/v1/purchases/{purchase_id}/receipts/{receipt_id}/download`
+
+Receipt paths are resolved only beneath `STORAGE_ROOT/receipts`; the backend and
+Telegram bot share `./storage` as `/app/storage` in Docker Compose. The API
+currently follows the existing trusted local-development access model and has
+no dashboard authentication or authorization. Do not expose it to untrusted
+networks until authentication and access controls are implemented.
+
+## Development-only Telegram session schema reset
+
+`Base.metadata.create_all()` does not add columns to an existing table. If a
+development database has an older `purchase_sessions` table without
+`callback_token`, stop both database users and reset only that table; projects,
+members, and all other records are preserved. This discards in-progress
+Telegram purchase sessions:
+
+```powershell
+docker compose stop backend telegram-bot
+python -c "import sqlite3; source=sqlite3.connect('storage/expense_manager.db'); backup=sqlite3.connect('storage/expense_manager.db.backup'); source.backup(backup); backup.close(); source.execute('DROP TABLE IF EXISTS purchase_sessions'); source.commit(); source.close()"
+docker compose up --build -d backend telegram-bot
+```
+
+The backend recreates `purchase_sessions` with its current schema on startup.
+Do not run this reset against production data.
+
 ## Current scope
-Phase 1 provides the project foundation, initial database schema, health endpoint, project CRUD API, and a minimal frontend shell. Telegram, OCR, approval UI, Google APIs and authentication are intentionally scheduled for subsequent phases.
+The project currently provides project management, Telegram receipt submission
+and local persistence, and a purchases dashboard. OCR, approval UI, Google APIs,
+financial reporting, and dashboard authentication are scheduled for later phases.

@@ -1,10 +1,11 @@
 import enum
+import secrets
 import uuid
 from datetime import datetime, date, timezone
 from decimal import Decimal
 from sqlalchemy import (
     String, Integer, Date, DateTime, Boolean, ForeignKey, Text, Numeric,
-    Enum, UniqueConstraint, Index
+    Enum, Index
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
@@ -16,6 +17,10 @@ def new_id() -> str:
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def new_callback_token() -> str:
+    return secrets.token_hex(6)
 
 
 class PurchaseStatus(str, enum.Enum):
@@ -195,3 +200,56 @@ class SyncOutbox(Base):
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+class PurchaseSession(Base):
+    """
+    Persistent state for an ongoing Telegram purchase submission.
+
+    A member can have one active submission session at a time.
+    """
+
+    __tablename__ = "purchase_sessions"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=new_id,
+    )
+
+    callback_token: Mapped[str] = mapped_column(
+        String(12),
+        unique=True,
+        index=True,
+        default=new_callback_token,
+        nullable=False,
+    )
+
+    member_id: Mapped[str] = mapped_column(
+        ForeignKey("members.id"),
+        index=True,
+        nullable=False,
+    )
+
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id"),
+        nullable=True,
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(40),
+        default="awaiting_project",
+        index=True,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        onupdate=utc_now,
+    )
